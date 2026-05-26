@@ -101,6 +101,16 @@ App
 - 설정: `vite.config.ts` → `test` 블록, `src/test-setup.ts`에서 `@testing-library/jest-dom` import
 - `globals: true`라서 `describe`, `it`, `expect` import 불필요
 
+## 디자인 시스템
+
+모든 스타일 작업 시 `docs/design-system/README.md`를 반드시 참고할 것.
+
+- **철학**: Soft Minimalism — 1px 실선 테두리 금지, 배경색 전환으로 depth 표현
+- **색상**: surface 계층 토큰 사용, 액센트(`#0053dc`)는 CTA/focus에만
+- **타이포**: Inter 단독, 순수 검정(`#000000`) 금지 → `#2b3437` 사용
+- **간격**: 1.4rem 리듬 기준, 리스트 구분선 금지 → gap으로 대체
+- 상세 토큰/컴포넌트 스펙/Do·Don't → `docs/design-system/README.md` 참조
+
 ## 기술 스택 메모
 
 - **Tailwind CSS v4**: `@tailwindcss/vite` 플러그인 방식. `tailwind.config.js` 없음
