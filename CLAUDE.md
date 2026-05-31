@@ -103,7 +103,10 @@ App
 
 ## 디자인 시스템
 
-모든 스타일 작업 시 `docs/design-system/README.md`를 반드시 참고할 것.
+모든 스타일/UI 작업 시작 전 반드시 `/design-system` 스킬을 호출할 것.
+스킬이 colors.md, typography.md, spacing.md, components.md를 로드하고 구현 규칙을 적용한다.
+
+> 트리거 예시: 버튼·카드·입력 필드·모달·레이아웃 구현, 색상·여백·폰트 변경, 디자인 토큰 적용
 
 - **철학**: Soft Minimalism — 1px 실선 테두리 금지, 배경색 전환으로 depth 표현
 - **색상**: surface 계층 토큰 사용, 액센트(`#0053dc`)는 CTA/focus에만
