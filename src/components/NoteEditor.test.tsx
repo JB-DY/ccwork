@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { NotesProvider } from '../context/NotesContext';
@@ -224,5 +224,189 @@ describe('NoteEditor', () => {
     expect(screen.queryByTestId('tag-chip')).not.toBeInTheDocument();
     // 입력은 비워져야 함
     expect(tagInput.value).toBe('');
+  });
+
+  // ── Issue #2: 칩의 × 버튼으로 태그 즉시 제거 ───────────────────────────
+
+  it('should render a remove (`×`) button inside each chip when `selectedNote.tags` is non-empty', async () => {
+    renderEditor([noteA], { selectedNoteId: 'a', isCreating: false });
+
+    await screen.findByDisplayValue('Note A');
+
+    const removeButtons = await screen.findAllByTestId('tag-chip-remove');
+    expect(removeButtons).toHaveLength(2);
+  });
+
+  it("should remove the clicked chip from the rendered list when its `×` button is clicked (e.g. `['react','typescript']` → click react's × → only `typescript` chip remains)", async () => {
+    const user = userEvent.setup();
+    renderEditor([noteA], { selectedNoteId: 'a', isCreating: false });
+
+    await screen.findByDisplayValue('Note A');
+    expect(screen.getByText('react')).toBeInTheDocument();
+    expect(screen.getByText('typescript')).toBeInTheDocument();
+
+    // 'react' 칩의 × 버튼 클릭
+    const reactChip = screen.getByText('react').closest('[data-testid="tag-chip"]') as HTMLElement;
+    const reactRemove = within(reactChip).getByTestId('tag-chip-remove');
+    await user.click(reactRemove);
+
+    // 'react' 칩은 사라지고 'typescript'만 남아야 함
+    await waitFor(() => {
+      expect(screen.queryByText('react')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('typescript')).toBeInTheDocument();
+  });
+
+  it("should call `updateNote(id, { title, content, tags: ['typescript'] })` when 'react' is removed from `['react','typescript']` and the note is saved", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.updateNote).mockResolvedValue({
+      ...noteA,
+      tags: ['typescript'],
+      updatedAt: '2026-01-07T00:00:00Z',
+    });
+
+    renderEditor([noteA], { selectedNoteId: 'a', isCreating: false });
+
+    await screen.findByDisplayValue('Note A');
+
+    const reactChip = screen.getByText('react').closest('[data-testid="tag-chip"]') as HTMLElement;
+    const reactRemove = within(reactChip).getByTestId('tag-chip-remove');
+    await user.click(reactRemove);
+
+    const saveButton = screen.getByRole('button', { name: /저장/ });
+    await act(async () => {
+      await user.click(saveButton);
+    });
+
+    expect(api.updateNote).toHaveBeenCalledWith('a', {
+      title: 'Note A',
+      content: 'content A',
+      tags: ['typescript'],
+    });
+  });
+
+  it('should remove only the clicked chip and leave the other chips visible (no over-removal)', async () => {
+    const user = userEvent.setup();
+    const noteThree: Note = {
+      id: 't3',
+      title: 'Three',
+      content: 'body',
+      tags: ['react', 'typescript', 'vue'],
+      createdAt: '2026-01-08T00:00:00Z',
+      updatedAt: '2026-01-08T00:00:00Z',
+    };
+
+    renderEditor([noteThree], { selectedNoteId: 't3', isCreating: false });
+
+    await screen.findByDisplayValue('Three');
+
+    const tsChip = screen
+      .getByText('typescript')
+      .closest('[data-testid="tag-chip"]') as HTMLElement;
+    const tsRemove = within(tsChip).getByTestId('tag-chip-remove');
+    await user.click(tsRemove);
+
+    await waitFor(() => {
+      expect(screen.queryByText('typescript')).not.toBeInTheDocument();
+    });
+    // 나머지 칩은 그대로 보여야 함
+    expect(screen.getByText('react')).toBeInTheDocument();
+    expect(screen.getByText('vue')).toBeInTheDocument();
+  });
+
+  it('should render zero chips and call `updateNote` with `tags: []` when the only remaining chip is removed and saved', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.updateNote).mockResolvedValue({
+      ...noteB,
+      tags: [],
+      updatedAt: '2026-01-09T00:00:00Z',
+    });
+
+    renderEditor([noteB], { selectedNoteId: 'b', isCreating: false });
+
+    await screen.findByDisplayValue('Note B');
+    expect(screen.getByText('vue')).toBeInTheDocument();
+
+    const vueChip = screen.getByText('vue').closest('[data-testid="tag-chip"]') as HTMLElement;
+    const vueRemove = within(vueChip).getByTestId('tag-chip-remove');
+    await user.click(vueRemove);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('tag-chip')).not.toBeInTheDocument();
+    });
+
+    const saveButton = screen.getByRole('button', { name: /저장/ });
+    await act(async () => {
+      await user.click(saveButton);
+    });
+
+    expect(api.updateNote).toHaveBeenCalledWith('b', {
+      title: 'Note B',
+      content: 'content B',
+      tags: [],
+    });
+  });
+
+  it("should not trigger a save (no `updateNote` call) when a chip's `×` is clicked but the save button is not pressed", async () => {
+    const user = userEvent.setup();
+    renderEditor([noteA], { selectedNoteId: 'a', isCreating: false });
+
+    await screen.findByDisplayValue('Note A');
+
+    const reactChip = screen.getByText('react').closest('[data-testid="tag-chip"]') as HTMLElement;
+    const reactRemove = within(reactChip).getByTestId('tag-chip-remove');
+    await user.click(reactRemove);
+
+    // 저장 버튼을 누르지 않았으므로 updateNote는 호출되면 안 됨
+    expect(api.updateNote).not.toHaveBeenCalled();
+  });
+
+  it('should restore the removed chip from server state when the note is re-selected without saving (reset on `selectedNoteId` change — 저장 전 제거는 서버에 반영되지 않음)', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderEditor([noteA, noteB], {
+      selectedNoteId: 'a',
+      isCreating: false,
+    });
+
+    await screen.findByDisplayValue('Note A');
+    expect(screen.getByText('react')).toBeInTheDocument();
+
+    // 'react' 제거 (저장하지 않음)
+    const reactChip = screen.getByText('react').closest('[data-testid="tag-chip"]') as HTMLElement;
+    const reactRemove = within(reactChip).getByTestId('tag-chip-remove');
+    await user.click(reactRemove);
+
+    await waitFor(() => {
+      expect(screen.queryByText('react')).not.toBeInTheDocument();
+    });
+
+    // 다른 노트로 전환했다가 다시 noteA로 돌아옴
+    rerender(<NoteEditor selectedNoteId="b" isCreating={false} onDone={vi.fn()} />);
+    await waitFor(() => {
+      expect(screen.getByText('vue')).toBeInTheDocument();
+    });
+
+    rerender(<NoteEditor selectedNoteId="a" isCreating={false} onDone={vi.fn()} />);
+
+    // 저장하지 않았으므로 'react' 칩이 서버 상태로 복원되어야 함
+    await waitFor(() => {
+      expect(screen.getByText('react')).toBeInTheDocument();
+    });
+    expect(screen.getByText('typescript')).toBeInTheDocument();
+  });
+
+  it("clicking a chip's `×` button should not submit/save (the click is isolated to local state, save still requires the save button)", async () => {
+    const user = userEvent.setup();
+    renderEditor([noteA], { selectedNoteId: 'a', isCreating: false });
+
+    await screen.findByDisplayValue('Note A');
+
+    const reactChip = screen.getByText('react').closest('[data-testid="tag-chip"]') as HTMLElement;
+    const reactRemove = within(reactChip).getByTestId('tag-chip-remove');
+    await user.click(reactRemove);
+
+    // 칩 제거 클릭만으로는 저장(서버 반영)이 일어나면 안 됨
+    expect(api.updateNote).not.toHaveBeenCalled();
+    expect(api.createNote).not.toHaveBeenCalled();
   });
 });
