@@ -16,7 +16,7 @@ export function NoteEditor({ selectedNoteId, isCreating, onDone }: NoteEditorPro
   const [saving, setSaving] = useState(false);
 
   const selectedNote = notes.find((n) => n.id === selectedNoteId);
-  const { tags, addTag, reset } = useTagInput(selectedNote?.tags ?? []);
+  const { tags, addTag, removeTag, reset } = useTagInput(selectedNote?.tags ?? []);
 
   // 선택된 노트가 바뀔 때 폼 동기화
   useEffect(() => {
@@ -36,6 +36,10 @@ export function NoteEditor({ selectedNoteId, isCreating, onDone }: NoteEditorPro
     e.preventDefault();
     addTag(tagDraft);
     setTagDraft('');
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    removeTag(tag);
   };
 
   const handleSave = async () => {
@@ -102,9 +106,17 @@ export function NoteEditor({ selectedNoteId, isCreating, onDone }: NoteEditorPro
           <span
             key={tag}
             data-testid="tag-chip"
-            className="bg-[#dbe4e7] text-[#586064] text-[0.75rem] font-medium uppercase tracking-[0.05em] rounded-full px-3 py-1"
+            className="inline-flex items-center gap-1.5 bg-[#dbe4e7] text-[#586064] text-[0.75rem] font-medium uppercase tracking-[0.05em] rounded-full px-3 py-1"
           >
             {tag}
+            <button
+              type="button"
+              data-testid="tag-chip-remove"
+              onClick={() => handleRemoveTag(tag)}
+              className="text-[#586064] hover:opacity-60 transition-opacity cursor-pointer leading-none"
+            >
+              ×
+            </button>
           </span>
         ))}
         <input
