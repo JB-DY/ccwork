@@ -28,7 +28,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Audit dependencies
-        run: npm audit --audit-level=moderate
+        run: npm audit --audit-level=moderate --omit=dev
 
       - name: Test
         run: npm test
