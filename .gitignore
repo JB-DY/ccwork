@@ -12,10 +12,20 @@ node_modules/
 dist/
 dist-ssr/
 
+# Test coverage
+coverage/
+
+# Playwright
+playwright-report/
+test-results/
+
 # Local env
 .env
 .env.local
 .env.*.local
+
+# Claude Code
+.claude/settings.local.json
 
 # Editor
 .vscode/*
